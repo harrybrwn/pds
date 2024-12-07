@@ -7,7 +7,7 @@ name: publish
 env:
   COMPOSE_DOCKER_CLI_BUILD: '1'
   DOCKER_BUILDKIT: '1'
-  DOCKER_USRNAME: harrybrwn
+  DOCKER_USERNAME: harrybrwn
 
 jobs:
   build:
