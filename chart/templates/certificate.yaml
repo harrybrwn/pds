@@ -1,0 +1,58 @@
+{{- if .Values.certificate }}
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: {{ include "pds.name" . }}-tls
+  namespace: {{ include "pds.ns" . }}
+spec:
+  secretName: {{ .Values.certificate.secretName }}
+  secretTemplate:
+    annotations:
+      replicator.v1.mittwald.de/replication-allowed: "true"
+      replicator.v1.mittwald.de/replication-allowed-namespaces: ".*"
+  issuerRef:
+    {{- toYaml .Values.certificate.issuerRef | nindent 4 }}
+  subject:
+    {{- toYaml .Values.certificate.subject | nindent 4 }}
+  commonName: {{ .Values.config.hostname | quote }}
+  dnsNames:
+    - {{ .Values.config.hostname | quote }}
+    - {{ printf "*.%s" .Values.config.hostname | quote }}
+  isCA: false
+  usages:
+    - server auth
+  {{- with .Values.certificate }}
+  {{- with .ipAddresses }}
+  ipAddresses:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+  {{- with .uris }}
+  uris:
+    {{- . | toYaml | nindent 4 }}
+  {{- end }}
+  {{- with .emailAddresses }}
+  emailAddresses:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+  {{- with .nameConstraints }}
+  nameConstraints:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+  {{- with .duration }}
+  duration: {{ . }}{{ end }}
+  {{- with .renewBefore }}
+  renewBefore: {{ . }}{{ end }}
+  {{- with .renewBeforePercentage }}
+  renewBeforePercentage: {{ . }}{{ end }}
+  {{- with .literalSubject }}
+  literalSubject: {{ . }}{{- end }}
+  {{- with .revisionHistoryLimit }}
+  revisionHistoryLimit: {{ . }}{{- end }}
+  {{- with .encodeUsagesInRequest }}
+  encodeUsagesInRequest: {{ . }}{{- end }}
+  {{- with .additionalOutputFormats }}
+  additionalOutputFormats:
+    {{- toYaml . | nindent 6 }}
+  {{- end }}
+  {{- end }}
+{{- end }}

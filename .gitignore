@@ -1,0 +1,8 @@
+/node_modules/
+/dist/
+/chart/dist/
+/testdata/
+/yarn.lock
+
+environment-variables.md
+env-vars.json

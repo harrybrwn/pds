@@ -1,0 +1,390 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "pds.fullname" . }}
+  namespace: {{ include "pds.ns" . }}
+  labels:
+    {{- include "pds.labels" . | nindent 4 }}
+spec:
+  {{- if not .Values.autoscaling.enabled }}
+  replicas: {{ .Values.replicaCount }}
+  strategy:
+    rollingUpdate:
+      maxSurge: 25%
+      maxUnavailable: 25%
+    type: RollingUpdate
+  {{- end }}
+  selector:
+    matchLabels:
+      {{- include "pds.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      {{- with .Values.podAnnotations }}
+      annotations:
+        {{- toYaml . | nindent 8 }}
+        kubectl.kubernetes.io/default-container: {{ .Chart.name }}
+      {{- end }}
+      labels:
+        {{- include "pds.labels" . | nindent 8 }}
+        {{- with .Values.podLabels }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+    spec:
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      serviceAccountName: {{ include "pds.serviceAccountName" . }}
+      {{- with .Values.podSecurityContext }}
+      securityContext:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      containers:
+        - name: {{ .Chart.Name }}
+          {{- with .Values.securityContext }}
+          securityContext:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          ports:
+            - name: http
+              containerPort: {{ .Values.service.port }}
+              protocol: TCP
+          livenessProbe:
+            {{- toYaml .Values.livenessProbe | nindent 12 }}
+          readinessProbe:
+            {{- toYaml .Values.readinessProbe | nindent 12 }}
+          resources:
+            {{- toYaml .Values.resources | nindent 12 }}
+          {{- with .Values.volumeMounts }}
+          volumeMounts:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          env:
+            - name: PDS_PORT
+              value: {{ .Values.service.port | quote }}
+          {{- with .Values.config }}
+            - name: PDS_HOSTNAME
+              value: {{ required "config.hostname is required" .hostname }}
+            - name: PDS_ADMIN_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  {{- required "config.adminPassword.secretKeyRef is required" .adminPassword.secretKeyRef | toYaml | nindent 18 }}
+            - name: PDS_JWT_SECRET
+              valueFrom:
+                {{- required "config.jwtSecret is required" .jwtSecret | toYaml | nindent 16 }}
+            {{- if .plcRotationKeyK256PrivateKeyHex }}
+            - name: PDS_PLC_ROTATION_KEY_K256_PRIVATE_KEY_HEX
+              valueFrom:
+                {{- toYaml .plcRotationKeyK256PrivateKeyHex | nindent 16 }}
+            {{- else if .plcRotationKeyKmsKeyId }}
+            - name: PDS_PLC_ROTATION_KEY_KMS_KEY_ID
+              valueFrom:
+                {{- toYaml .plcRotationKeyKmsKeyId | nindent 16 }}
+            {{- else }}
+              {{ fail "One of either config.plcRotationKeyK256PrivateKeyHex or config.plcRotationKeyKmsKeyId is required" }}
+            {{- end }}
+            - name: PDS_DATA_DIRECTORY
+              value: {{ required "config.dataDirectory is required" .dataDirectory }}
+            - name: PDS_BLOB_UPLOAD_LIMIT
+              value: {{ .blobUploadLimit | quote }}
+            - name: PDS_DID_PLC_URL
+              value: {{ .didPlcUrl }}
+            - name: PDS_BSKY_APP_VIEW_URL
+              value: {{ .appView.url }}
+            - name: PDS_BSKY_APP_VIEW_DID
+              value: {{ .appView.did }}
+            - name: PDS_REPORT_SERVICE_URL
+              value: {{ .reportService.url }}
+            - name: PDS_REPORT_SERVICE_DID
+              value: {{ .reportService.did }}
+            - name: PDS_CRAWLERS
+              value: {{ .crawlers | join "," }}
+            - name: PDS_DEV_MODE
+              value: {{ .devMode }}
+            - name: LOG_ENABLED
+              value: {{ .logEnabled }}
+            - name: LOG_LEVEL
+              value: {{ .logLevel }}
+            {{- if or (not .blobstore) (and (not .blobstore.s3) (not .blobstore.disk)) }}
+            - name: PDS_BLOBSTORE_DISK_LOCATION
+              value: {{ .dataDirectory }}/blobs
+            {{- else if and .blobstore.s3 .blobstore.disk }}
+              {{ fail "Cannot use both config.blobstore.s3 and config.blobstore.disk" }}
+            {{- else if .blobstore.s3 }}
+            - name: PDS_BLOBSTORE_S3_BUCKET
+              value: {{ .blobstore.s3.bucket }}
+            - name: PDS_BLOBSTORE_S3_REGION
+              value: {{ .blobstore.s3.region }}
+            - name: PDS_BLOBSTORE_S3_ENDPOINT
+              value: {{ .blobstore.s3.endpoint }}
+            - name: PDS_BLOBSTORE_S3_FORCE_PATH_STYLE
+              value: {{ .blobstore.s3.forcePathStyle | default "false" }}
+            - name: PDS_BLOBSTORE_S3_ACCESS_KEY_ID
+              valueFrom:
+                {{- toYaml .blobstore.s3.accessKeyId | nindent 16 }}
+            - name: PDS_BLOBSTORE_S3_SECRET_ACCESS_KEY
+              valueFrom:
+                {{- toYaml .blobstore.s3.secretAccessKey | nindent 16 }}
+            - name: PDS_BLOBSTORE_S3_UPLOAD_TIMEOUT_MS
+              value: {{ .blobstore.s3.uploadTimeoutMs | default "20000" | quote }}
+            {{- else if .blobstore.disk }}
+            - name: PDS_BLOBSTORE_DISK_LOCATION
+              value: {{ .blobstore.disk.location }}
+              {{- if .blobstore.disk.tmpLocation }}
+            - name: PDS_BLOBSTORE_DISK_TMP_LOCATION
+              value: {{ .blobstore.disk.tmpLocation }}
+              {{- end }}
+            {{- else }}
+              {{ fail "Either config.blobstore.s3 or config.blobstore.disk are required" }}
+            {{- end }}
+            {{- with .email }}
+            - name: PDS_EMAIL_FROM_ADDRESS
+              value: {{ required "config.email.from is a required field" .from }}
+            - name: PDS_EMAIL_SMTP_URL
+              valueFrom:
+                secretKeyRef:
+                  {{- required "config.email.smtpUrl.secretKeyRef is a required field" .smtpUrl.secretKeyRef | toYaml | nindent 18 }}
+            {{- end }}
+            {{- with .rateLimits }}
+            - name: PDS_RATE_LIMITS_ENABLED
+              value: {{ .enabled | default "false" }}
+            - name: PDS_RATE_LIMIT_BYPASS_KEY
+              value: {{ .bypassKey }}
+            - name: PDS_RATE_LIMIT_BYPASS_IPS
+              value: {{ .bypassIps | join "," }}
+            {{- end }}
+            {{- with .fetchMaxResponseSize }}
+            - name: PDS_FETCH_MAX_RESPONSE_SIZE
+              value: {{ . }}
+            {{- end }}
+            {{- with .disableSsrfProtection }}
+            - name: PDS_DISABLE_SSRF_PROTECTION
+              value: {{ . }}
+            {{- end }}
+            {{- with .entryway }}
+            - name: PDS_ENTRYWAY_URL
+              value: {{ .url }}
+            - name: PDS_ENTRYWAY_DID
+              value: {{ .did }}
+            - name: PDS_ENTRYWAY_JWT_VERIFY_KEY_K256_PUBLIC_KEY_HEX
+              value: {{ .jwtVerifyKeyK256PublicKeyHex }}
+            - name: PDS_ENTRYWAY_PLC_ROTATION_KEY
+              value: {{ .plcRotationKey }}
+            {{- end }}
+            {{- with .proxy }}
+            - name: PDS_PROXY_ALLOW_HTTP2
+              value: {{ .allowHTTP2 }}
+            - name: PDS_PROXY_HEADERS_TIMEOUT
+              value: {{ .headersTimeout }}
+            - name: PDS_PROXY_BODY_TIMEOUT
+              value: {{ .bodyTimeout }}
+            - name: PDS_PROXY_MAX_RESPONSE_SIZE
+              value: {{ .maxResponseSize }}
+            - name: PDS_PROXY_MAX_RETRIES
+              value: {{ .maxRetries }}
+            - name: PDS_PROXY_PREFER_COMPRESSED
+              value: {{ .preferCompressed }}
+            {{- end }}
+            {{- with .serviceDid }}
+            - name: PDS_SERVICE_DID
+              value: {{ . }}
+            {{- end }}
+            {{- with .serviceName }}
+            - name: PDS_SERVICE_NAME
+              value: {{ . }}
+            {{- end }}
+            {{- with .homeUrl }}
+            - name: PDS_HOME_URL
+              value: {{ . }}
+            {{- end }}
+            {{- with .logoUrl }}
+            - name: PDS_LOGO_URL
+              value: {{ . }}
+            {{- end }}
+            {{- with .privacyPolicyUrl }}
+            - name: PDS_PRIVACY_POLICY_URL
+              value: {{ . }}
+            {{- end }}
+            {{- with .supportUrl }}
+            - name: PDS_SUPPORT_URL
+              value: {{ . }}
+            {{- end }}
+            {{- with .termsOfServiceUrl }}
+            - name: PDS_TERMS_OF_SERVICE_URL
+              value: {{ . }}
+            {{- end }}
+            {{- with .contactEmailAddress }}
+            - name: PDS_CONTACT_EMAIL_ADDRESS
+              value: {{ . }}
+            {{- end }}
+            {{- with .acceptingRepoImports }}
+            - name: PDS_ACCEPTING_REPO_IMPORTS
+              value: {{ . }}
+            {{- end }}
+            {{- with .brandColor }}
+            - name: PDS_PRIMARY_COLOR
+              value: {{ . }}
+            {{- end }}
+            {{- with .errorColor }}
+            - name: PDS_ERROR_COLOR
+              value: {{ . }}
+            {{- end }}
+            {{- with .warningColor }}
+            - name: PDS_WARNING_COLOR
+              value: {{ . }}
+            {{- end }}
+            {{- with .accountDbLocation }}
+            - name: PDS_ACCOUNT_DB_LOCATION
+              value: {{ . }}
+            {{- end }}
+            {{- with .sequencerDbLocation }}
+            - name: PDS_SEQUENCER_DB_LOCATION
+              value: {{ . }}
+            {{- end }}
+            {{- with .disableWalAutoCheckpoint }}
+            - name: PDS_SQLITE_DISABLE_WAL_AUTO_CHECKPOINT
+              value: {{ . }}
+            {{- end }}
+            {{- with .actorStore }}
+            {{- with .directory }}
+            - name: PDS_ACTOR_STORE_DIRECTORY
+              value: {{ . }}
+            {{- end }}
+            {{- with .cacheSize }}
+            - name: PDS_ACTOR_STORE_CACHE_SIZE
+              value: {{ . }}
+            {{- end }}
+            {{- end }}
+            {{- with .didCache }}
+              {{- with .staleTTL }}
+            - name: PDS_DID_CACHE_STALE_TTL
+              value: {{ . }}
+              {{- end }}
+              {{- with .maxTTL }}
+            - name: PDS_DID_CACHE_MAX_TTL
+              value: {{ . }}
+              {{- end }}
+              {{- with .dbLocation }}
+            - name: PDS_DID_CACHE_DB_LOCATION
+              value: {{ . }}
+              {{- end }}
+            {{- end }}
+            {{- with .resolverTimeout }}
+            - name: PDS_ID_RESOLVER_TIMEOUT
+              value: {{ . }}
+            {{- end }}
+            {{- with .recoveryDidKey }}
+            - name: PDS_RECOVERY_DID_KEY
+              value: {{ . }}
+            {{- end }}
+            {{- with .serviceHandleDomains }}
+            - name: PDS_SERVICE_HANDLE_DOMAINS
+              value: {{ . }}
+            {{- end }}
+            {{- with .handleBackupNameservers }}
+            - name: PDS_HANDLE_BACKUP_NAMESERVERS
+              value: {{ . }}
+            {{- end }}
+            {{- with .enableDidDocWithSession }}
+            - name: PDS_ENABLE_DID_DOC_WITH_SESSION
+              value: {{ . }}
+            {{- end }}
+            {{- with .invite }}
+            {{- with .required }}
+            - name: PDS_INVITE_REQUIRED
+              value: {{ . }}
+            {{- end }}
+            {{- with .interval }}
+            - name: PDS_INVITE_INTERVAL
+              value: {{ . }}
+            {{- end }}
+            {{- with .epoch }}
+            - name: PDS_INVITE_EPOCH
+              value: {{ . }}
+            {{- end }}
+            {{- end }}
+            {{- with .moderationEmail }}
+            {{- with .smtpUrl }}
+            - name: PDS_MODERATION_EMAIL_SMTP_URL
+              value: {{ . }}
+            {{- end }}
+            {{- with .address }}
+            - name: PDS_MODERATION_EMAIL_ADDRESS
+              value: {{ . }}
+            {{- end }}
+            {{- end }}
+            {{- with .modService }}
+            {{- with .url }}
+            - name: PDS_MOD_SERVICE_URL
+              value: {{ . }}
+            {{- end }}
+            {{- with .did }}
+            - name: PDS_MOD_SERVICE_DID
+              value: {{ . }}
+            {{- end }}
+            {{- end }}
+            {{- with .dpopSecret}}
+            - name: PDS_DPOP_SECRET
+              value: {{ . }}
+            {{- end }}
+            {{- with .redis }}
+            {{- with .address }}
+            - name: PDS_REDIS_SCRATCH_ADDRESS
+              value: {{ . }}
+            {{- end }}
+            {{- with .password }}
+            - name: PDS_REDIS_SCRATCH_PASSWORD
+              valueFrom:
+                {{- toYaml . | nindent 16 }}
+            {{- end }}
+            {{- end }}
+            {{- with .maxSubscriptionBuffer }}
+            - name: PDS_MAX_SUBSCRIPTION_BUFFER
+              value: {{ . }}
+            {{- end }}
+            {{- with .repoBackfillLimitMs }}
+            - name: PDS_REPO_BACKFILL_LIMIT_MS
+              value: {{ . }}
+            {{- end }}
+          {{- end }}
+          {{- with .Values.envFrom }}
+          envFrom:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+      {{- with .Values.volumes }}
+      volumes:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- if .Values.affinity }}
+      {{- with .Values.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- else }}
+      affinity:
+        nodeAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+            - matchExpressions:
+              - key: "kubernetes.io/arch"
+                operator: In
+                values: ["amd64"]
+      {{- end }}
+      {{- if .Values.tolerations }}
+      {{- with .Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- else }}
+      tolerations:
+      - key: "arch"
+        operator: "Equal"
+        value: "arm64"
+        effect: "NoSchedule"
+      {{- end }}

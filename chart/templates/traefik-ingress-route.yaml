@@ -1,0 +1,26 @@
+{{- if .Values.traefikIngress.enabled }}
+apiVersion: traefik.containo.us/v1alpha1
+kind: IngressRoute
+metadata:
+  name: {{ include "pds.fullname" . }}
+  namespace: {{ .Values.traefikIngress.namespace }}
+spec:
+  entryPoints: [websecure, web]
+  routes:
+  - match: >-
+      Host(`{{ .Values.config.hostname | lower }}`)
+      || HostRegexp(`^[a-zA-Z0-9_-]{1,255}\.{{ .Values.config.hostname | replace "." "\\." | lower }}$`)
+    kind: Rule
+    services:
+      - name: {{ include "pds.fullname" . }}
+        namespace: {{ include "pds.ns" . }}
+        kind: Service
+        port: http
+        scheme: http
+  tls:
+    {{- if .Values.certificate.secretName }}
+    secretName: {{ .Values.certificate.secretName }}
+    {{- else }}
+    secretName: {{ .Values.traefikIngress.tlsSecretName | required "tlsSecretName is required or use certificate.secretName" }}
+    {{- end }}
+{{- end }}

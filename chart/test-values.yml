@@ -1,0 +1,92 @@
+config:
+  hostname: 'test.local'
+  dataDirectory: '/pds'
+  adminPassword:
+    secretKeyRef:
+      name: pds
+      key: pds-admin-password
+  jwtSecret:
+    secretKeyRef:
+      name: pds
+      key: pds-jwt-secret
+  plcRotationKeyK256PrivateKeyHex:
+    secretKeyRef:
+      name: pds
+      key: pds-plc-private-key
+  # crawlers:
+  #   - https://bsky.network
+  #   - http://localhost:8899
+  blobstore:
+    # disk:
+    #   location: /pds/blobs
+    s3:
+      bucket: pds-blobs
+      region: us-east-1
+      endpoint: "http://minio:9000"
+      forcePathStyle: 'true'
+      accessKeyId:
+        secretKeyRef:
+          name: pds
+          key: pds-s3-id
+      secretAccessKey:
+        secretKeyRef:
+          name: pds
+          key: pds-s3-secret-key
+      uploadTimeoutMs: '23000'
+  email:
+    from: "pds-admin@example.com"
+    smtpUrl:
+      secretKeyRef:
+        name: pds-email
+        key: pds-email-url
+  redis:
+    address: tcp://redis:6767
+    password:
+      secretKeyRef:
+        name: pds
+        key: pds-redis-password
+
+envFrom:
+  # Use pds-env for other configuration like LOG_ENABLED
+  - configMapRef:
+      name: pds-env
+  # Use pds-env for other configuration like blob storage settings
+  - secretRef:
+      name: pds-env
+
+traefikIngress:
+  enabled: true
+
+certificate:
+  secretName: bsky-tls-cert
+  issuerRef:
+    name: ca-issuer
+    kind: Issuer
+    group: cert-manager.io # this is the default
+  subject:
+    organizations: []
+    organizationalUnits: [homelab]
+  nameConstraints:
+    critical: true
+    permitted:
+      dnsDomains:
+        - x.example.com
+
+volumeMounts:
+  - name: pds-data
+    mountPath: /pds
+
+volumes:
+# HostPath is quite a bit faster than NFS volumes.
+- name: pds-data
+  hostPath:
+    type: DirectoryOrCreate
+    path: /bsky-pds/data
+
+resources:
+  requests:
+    cpu: 500m
+    memory: 256Mi
+  limits:
+    cpu: 1000m
+    memory: 1024Mi
