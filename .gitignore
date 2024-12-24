@@ -1,8 +1,17 @@
 /node_modules/
 /dist/
 /chart/dist/
+/chart/test/
 /testdata/
 /yarn.lock
+
+# Experiments
+/pkg/
+go.mod
+go.sum
+
+# Random scripts
+chart/render.sh
 
 environment-variables.md
 env-vars.json

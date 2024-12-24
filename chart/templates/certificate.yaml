@@ -2,14 +2,28 @@
 apiVersion: cert-manager.io/v1
 kind: Certificate
 metadata:
-  name: {{ include "pds.name" . }}-tls
+  name: {{ include "pds.fullname" . }}-tls
+  {{- if and .Values.certificate.metadata .Values.certificate.metadata.namespace }}
+  namespace: {{ .Values.certificate.metadata.namespace }}
+  {{- else }}
   namespace: {{ include "pds.ns" . }}
+  {{- end }}
+  labels:
+    {{- include "pds.labels" . | nindent 4 }}
 spec:
   secretName: {{ .Values.certificate.secretName }}
   secretTemplate:
     annotations:
       replicator.v1.mittwald.de/replication-allowed: "true"
       replicator.v1.mittwald.de/replication-allowed-namespaces: ".*"
+    {{- if .Values.certificate.secretTemplate }}
+    {{- with .Values.certificate.secretTemplate.annotations }}
+      {{- toYaml . | nindent 6 }}
+    {{- end }}
+    {{- with .Values.certificate.secretTemplate.labels }}
+      {{- toYaml . | nindent 6 }}
+    {{- end }}
+    {{- end }}
   issuerRef:
     {{- toYaml .Values.certificate.issuerRef | nindent 4 }}
   subject:

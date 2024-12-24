@@ -2,10 +2,21 @@
 apiVersion: traefik.containo.us/v1alpha1
 kind: IngressRoute
 metadata:
-  name: {{ include "pds.fullname" . }}
+  name: {{ include "pds.fullname" . }}-routes
+  {{- if .Values.traefikIngress.namespace }}
   namespace: {{ .Values.traefikIngress.namespace }}
+  {{- else }}
+  namespace: {{ include "pds.ns" . }}
+  {{- end }}
+  labels:
+    {{- include "pds.labels" . | nindent 4 }}
 spec:
+  {{- if .Values.traefikIngress.entryPoints }}
+  entryPoints:
+    {{- toYaml .Values.traefikIngress.entryPoints | nindent 4 }}
+  {{- else }}
   entryPoints: [websecure, web]
+  {{- end }}
   routes:
   - match: >-
       Host(`{{ .Values.config.hostname | lower }}`)
@@ -21,6 +32,6 @@ spec:
     {{- if .Values.certificate.secretName }}
     secretName: {{ .Values.certificate.secretName }}
     {{- else }}
-    secretName: {{ .Values.traefikIngress.tlsSecretName | required "tlsSecretName is required or use certificate.secretName" }}
+    secretName: {{ .Values.traefikIngress.tls.secretName | required "traefikIngress.tls.secretName is required or use certificate.secretName" }}
     {{- end }}
 {{- end }}

@@ -73,8 +73,11 @@ spec:
                   {{- required "config.adminPassword.secretKeyRef is required" .adminPassword.secretKeyRef | toYaml | nindent 18 }}
             - name: PDS_JWT_SECRET
               valueFrom:
-                {{- required "config.jwtSecret is required" .jwtSecret | toYaml | nindent 16 }}
-            {{- if .plcRotationKeyK256PrivateKeyHex }}
+                secretKeyRef:
+                  {{- required "config.jwtSecret.secretKeyRef is required" .jwtSecret.secretKeyRef | toYaml | nindent 18 }}
+            {{- if and .plcRotationKeyK256PrivateKeyHex .plcRotationKeyKmsKeyId }}
+              {{ fail "One of either config.plcRotationKeyK256PrivateKeyHex or config.plcRotationKeyKmsKeyId is required" }}
+            {{- else if .plcRotationKeyK256PrivateKeyHex }}
             - name: PDS_PLC_ROTATION_KEY_K256_PRIVATE_KEY_HEX
               valueFrom:
                 {{- toYaml .plcRotationKeyK256PrivateKeyHex | nindent 16 }}
@@ -102,9 +105,9 @@ spec:
             - name: PDS_CRAWLERS
               value: {{ .crawlers | join "," }}
             - name: PDS_DEV_MODE
-              value: {{ .devMode }}
+              value: {{ quote .devMode }}
             - name: LOG_ENABLED
-              value: {{ .logEnabled }}
+              value: {{ quote .logEnabled }}
             - name: LOG_LEVEL
               value: {{ .logLevel }}
             {{- if or (not .blobstore) (and (not .blobstore.s3) (not .blobstore.disk)) }}
@@ -120,7 +123,7 @@ spec:
             - name: PDS_BLOBSTORE_S3_ENDPOINT
               value: {{ .blobstore.s3.endpoint }}
             - name: PDS_BLOBSTORE_S3_FORCE_PATH_STYLE
-              value: {{ .blobstore.s3.forcePathStyle | default "false" }}
+              value: {{ quote .blobstore.s3.forcePathStyle | default "false" }}
             - name: PDS_BLOBSTORE_S3_ACCESS_KEY_ID
               valueFrom:
                 {{- toYaml .blobstore.s3.accessKeyId | nindent 16 }}

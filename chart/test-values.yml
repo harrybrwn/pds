@@ -1,6 +1,6 @@
 config:
   hostname: 'test.local'
-  dataDirectory: '/pds'
+  dataDirectory: '/pds-data'
   adminPassword:
     secretKeyRef:
       name: pds
@@ -45,6 +45,12 @@ config:
       secretKeyRef:
         name: pds
         key: pds-redis-password
+  rateLimits:
+    enabled: false
+    bypassKey: '7a8512b26d4bece460a534d3ce5b62eb'
+    bypassIps:
+      - 127.0.0.1
+      - 192.168.1.25
 
 envFrom:
   # Use pds-env for other configuration like LOG_ENABLED
@@ -90,3 +96,19 @@ resources:
   limits:
     cpu: 1000m
     memory: 1024Mi
+affinity:
+  nodeAffinity:
+    requiredDuringSchedulingIgnoredDuringExecution:
+      nodeSelectorTerms:
+      - matchExpressions:
+        - key: "kubernetes.io/arch"
+          operator: In
+          values: ["amd64"]
+        - key: "this-is-a-bsky-pds"
+          operator: In
+          values: ["true"]
+tolerations:
+- key: "arch"
+  operator: "Equal"
+  value: "ppcpu69"
+  effect: "NoSchedule"

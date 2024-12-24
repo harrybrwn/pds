@@ -14,6 +14,7 @@ Options:
       --env <file>        Get variables from an .env file (default is "config/env/pdsadmin.env")
       --hostname <host>   Set the PDS_HOSTNAME
       --admin-password    Set the PDS_ADMIN_PASSWORD
+  -i, --insecure          Use http instead of https
 
 Commands:
   update
@@ -66,7 +67,7 @@ guard_hostname() {
 
 guard_pw() {
   if [ -z "${PDS_ADMIN_PASSWORD:-}" ]; then
-    echo "Error: PDS_PASSWORD is required" 1>&2
+    echo "Error: PDS_ADMIN_PASSWORD is required" 1>&2
     exit 1
   fi
 }
@@ -88,7 +89,6 @@ function curl_cmd_post_nofail {
 
 cmd_health() {
   guard_hostname
-  guard_pw
   local URL="${SCHEME}://${PDS_HOSTNAME}/xrpc/_health"
   echo "GET ${URL}"
   echo
@@ -321,15 +321,18 @@ cmd_account_reset_password() {
   echo
 }
 
+cmd_generate() {
+  cat <<-EOF
+new admin password:                        $(openssl rand -hex 16)
+new jwt secret:                            $(openssl rand -hex 16)
+new plc rotation key K256 private key hex: $(openssl ecparam --name secp256k1 --genkey --noout --outform DER | tail --bytes=+8 | head --bytes=32 | xxd --plain --cols 32)
+EOF
+}
+
 ARGS=()
 ENV_FILES=()
 COMMAND=""
 HELP=false
-
-PDS_ENV_FILE="config/env/pdsadmin.env"
-if [ -f "${PDS_ENV_FILE}" ]; then
-  ENV_FILES+=("${PDS_ENV_FILE}")
-fi
 
 # Ensure the user is root, since it's required for most commands.
 #if [[ "${EUID}" -ne 0 ]]; then
@@ -339,31 +342,17 @@ fi
 
 while [ $# -gt 0 ]; do
   case "$1" in
-    -h|-help|--help|help)
-      # COMMAND="help"
-      HELP=true
-      shift
-      ;;
-    -v|--verbose)
-      VERBOSE=true
-      shift
-      ;;
-    --scheme)
-      SCHEME="$2"
-      shift 2
-      ;;
-    -env|--env)
-      ENV_FILES+=("${2}")
-      shift 2
-      ;;
-    -hostname|--hostname)
-      _PDS_HOSTNAME="$2"
-      shift 2
-      ;;
-    -admin-password|--admin-password)
-      _PDS_ADMIN_PASSWORD="$2"
-      shirt 2
-      ;;
+    -h|-help|--help|help)                      HELP=true;                     shift   ;;
+    -v|--verbose)                              VERBOSE=true;                  shift   ;;
+    -i|--insecure|-insecure)                   PDSADMIN_SCHEMA='http';        shift   ;;
+    --scheme)                                  SCHEME="$2";                   shift 2 ;;
+    --scheme=*)                                SCHEME="${1#*=}";              shift   ;;
+    -env|--env)                                ENV_FILES+=("${2}");           shift 2 ;;
+    -env=*|--env=*)                            ENV_FILES+=("${1#*=}");        shift   ;;
+    -hostname|--hostname|-host|--host)         _PDS_HOSTNAME="$2";            shift 2 ;;
+    -host=*|--host=*|-hostname=*|--hostname=*) _PDS_HOSTNAME="${1#*=}";       shift   ;;
+    -admin-password|--admin-password)          _PDS_ADMIN_PASSWORD="$2";      shift 2 ;;
+    -admin-password=*|--admin-password=*)      _PDS_ADMIN_PASSWORD="${1#*=}"; shift   ;;
     -*)
       if [ -n "${COMMAND}" ]; then
         ARGS+=("$1")
@@ -393,10 +382,10 @@ for file in ${ENV_FILES[@]}; do
 done
 
 if [ -n "${_PDS_HOSTNAME:-}" ]; then
-  PDS_HOSTNAME="${_PDS_HOSTNAME:-}"
+  export PDS_HOSTNAME="${_PDS_HOSTNAME:-}"
 fi
 if [ -n "${_PDS_ADMIN_PASSWORD:-}" ]; then
-  PDS_ADMIN_PASSWORD="${_PDS_ADMIN_PASSWORD:-}"
+  export PDS_ADMIN_PASSWORD="${_PDS_ADMIN_PASSWORD:-}"
 fi
 
 export PDS_HOSTNAME
@@ -413,7 +402,7 @@ set -- "${ARGS[@]}"
 
 case "${COMMAND}" in
   health)
-    cmd_health
+    cmd_health "$@"
     ;;
   create-invite-code)
     cmd_create_invite_code "$@"
@@ -485,6 +474,10 @@ EOF
       echo "admin password: \"$(echo "${PDS_ADMIN_PASSWORD:-}" | sed 's/./*/g')\""
     fi
     echo "hostname:       \"${PDS_HOSTNAME}\""
+    exit 0
+    ;;
+  gen|generate)
+    cmd_generate
     exit 0
     ;;
   help|-h|-help|--help)

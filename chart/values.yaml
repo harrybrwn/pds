@@ -73,12 +73,12 @@ config:
   reportService:
     url: https://mod.bsky.app
     did: did:plc:ar7c4by46qjdydhdevvrndac
-  rateLimits:
-    enabled: false
-    bypassKey: '7a8512b26d4bece460a534d3ce5b62eb'
-    bypassIps:
-      - 127.0.0.1
-      - 192.168.1.25
+  rateLimits: {}
+    # enabled: false
+    # bypassKey: '7a8512b26d4bece460a534d3ce5b62eb'
+    # bypassIps:
+    #   - 127.0.0.1
+    #   - 192.168.1.25
   # fetchMaxResponseSize: '524288'
   # disableSsrfProtection: 'false'
   entryway: {}
@@ -142,7 +142,6 @@ service:
 
 traefikIngress:
   enabled: false
-  namespace: default
   # tlsSecretName: ""
 
 ingress:
@@ -162,6 +161,19 @@ ingress:
   #      - chart-example.local
 
 certificate: {}
+  # secretName: bsky-tls-cert
+  # issuerRef:
+  #   name: ca-issuer
+  #   kind: Issuer
+  #   group: cert-manager.io # this is the default
+  # subject:
+  #   organizations: []
+  #   organizationalUnits: [homelab]
+  # nameConstraints:
+  #   critical: true
+  #   permitted:
+  #     dnsDomains:
+  #       - x.example.com
 
 resources: {}
   # We usually recommend not to specify default resources and to leave this as a conscious

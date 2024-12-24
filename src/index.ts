@@ -9,7 +9,6 @@ async function main() {
   const cfg = envToCfg(env);
   const secrets = envToSecrets(env);
   const pds = await PDS.create(cfg, secrets);
-  console.log('server:', pds.server);
 
   await pds.start();
   httpLogger.info("pds has started");
