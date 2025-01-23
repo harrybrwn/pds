@@ -190,6 +190,7 @@ cmd_account_create() {
     "${SCHEME}://${PDS_HOSTNAME}/xrpc/com.atproto.server.createInviteCode" | jq --raw-output '.code'
   )"
   local RESULT="$(curl_cmd_post_nofail \
+    --user "admin:${PDS_ADMIN_PASSWORD}" \
     --data "{\"email\":\"${EMAIL}\", \"handle\":\"${HANDLE}\", \"password\":\"${PASSWORD}\", \"inviteCode\":\"${INVITE_CODE}\"}" \
     "${SCHEME}://${PDS_HOSTNAME}/xrpc/com.atproto.server.createAccount"
   )"
@@ -344,7 +345,7 @@ while [ $# -gt 0 ]; do
   case "$1" in
     -h|-help|--help|help)                      HELP=true;                     shift   ;;
     -v|--verbose)                              VERBOSE=true;                  shift   ;;
-    -i|--insecure|-insecure)                   PDSADMIN_SCHEMA='http';        shift   ;;
+    -i|--insecure|-insecure)                   SCHEME='http';                 shift   ;;
     --scheme)                                  SCHEME="$2";                   shift 2 ;;
     --scheme=*)                                SCHEME="${1#*=}";              shift   ;;
     -env|--env)                                ENV_FILES+=("${2}");           shift 2 ;;
