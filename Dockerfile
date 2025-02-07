@@ -3,7 +3,6 @@ RUN npm install --global pnpm
 WORKDIR /app
 # cache dependencies
 COPY package.json pnpm-lock.yaml ./
-COPY scripts/postinstall.sh ./scripts/
 RUN pnpm approve-builds && pnpm install --frozen-lockfile
 # full build
 COPY . .
