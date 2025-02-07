@@ -5,7 +5,8 @@
   "private": true,
   "scripts": {
     "build": "tsc",
-    "start": "tsc && node dist/index.js"
+    "start": "tsc && node dist/index.js",
+    "postinstall": "scripts/postinstall.sh"
   },
   "dependencies": {
     "@atproto/pds": "^0.4.94",

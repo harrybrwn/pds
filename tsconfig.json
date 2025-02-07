@@ -21,7 +21,9 @@
     },
     "resolveJsonModule": true
   },
+  "include": ["src/**/*"],
   "exclude": [
-    "**/*.test.ts"
+    "**/*.test.ts",
+    "toos/**",
   ]
 }
