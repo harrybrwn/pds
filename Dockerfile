@@ -11,4 +11,5 @@ RUN pnpm build
 FROM node:22.4.1-alpine3.20
 COPY --from=build /app/node_modules /app/node_modules
 COPY --from=build /app/dist /app/dist
+COPY scripts/pdsadmin.sh /usr/bin/pdsadmin
 ENTRYPOINT [ "node", "/app/dist/index.js" ]
