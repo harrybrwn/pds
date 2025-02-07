@@ -8,8 +8,8 @@
     "start": "tsc && node dist/index.js"
   },
   "dependencies": {
-    "@atproto/pds": "^0.4.74",
-    "@atproto/xrpc-server": "^0.7.3"
+    "@atproto/pds": "^0.4.94",
+    "@atproto/xrpc-server": "^0.7.10"
   },
   "devDependencies": {
     "@types/express": "^5.0.0",
