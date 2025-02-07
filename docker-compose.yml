@@ -3,6 +3,7 @@ services:
     image: harrybrwn/pds:latest
     build:
       context: .
+      target: pds
     volumes:
       - pds-data:/pds
     environment:

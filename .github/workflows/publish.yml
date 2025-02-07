@@ -42,8 +42,19 @@ jobs:
       uses: docker/build-push-action@v6
       with:
         context: .
+        target: pds
         push: ${{ github.event_name != 'pull_request' }}
         tags: |
           ${{ env.DOCKER_USERNAME }}/pds:latest
           ${{ env.DOCKER_USERNAME }}/pds:${{ steps.pds.outputs.version }}
           ${{ env.DOCKER_USERNAME }}/pds:${{ github.sha }}
+    - name: Build and push
+      uses: docker/build-push-action@v6
+      with:
+        context: .
+        target: pdsadmin
+        push: ${{ github.event_name != 'pull_request' }}
+        tags: |
+          ${{ env.DOCKER_USERNAME }}/pdsadmin:latest
+          ${{ env.DOCKER_USERNAME }}/pdsadmin:${{ steps.pds.outputs.version }}
+          ${{ env.DOCKER_USERNAME }}/pdsadmin:${{ github.sha }}

@@ -4,14 +4,24 @@ WORKDIR /app
 # cache dependencies
 COPY package.json pnpm-lock.yaml ./
 COPY scripts/postinstall.sh ./scripts/
-RUN pnpm install --frozen-lockfile
+RUN pnpm approve-builds && pnpm install --frozen-lockfile
 # full build
 COPY . .
 RUN pnpm build
 
-FROM node:22.4.1-alpine3.20
+FROM node:22.4.1-alpine3.20 AS pds
+RUN apk add --update bash
 COPY --from=build /app/node_modules /app/node_modules
 COPY --from=build /app/dist /app/dist
-COPY scripts/pdsadmin.sh /usr/bin/pdsadmin
 WORKDIR /app
 ENTRYPOINT [ "node", "--enable-source-maps", "/app/dist/index.js" ]
+
+FROM alpine:3.20 AS pdsadmin
+RUN apk update && apk upgrade && \
+    apk add -l -U \
+        bash      \
+        curl      \
+        jq        \
+        openssl
+COPY scripts/pdsadmin.sh /usr/bin/pdsadmin
+ENTRYPOINT [ "/usr/bin/pdsadmin" ]

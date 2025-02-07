@@ -5,8 +5,7 @@
   "private": true,
   "scripts": {
     "build": "tsc",
-    "start": "tsc && node dist/index.js",
-    "postinstall": "scripts/postinstall.sh"
+    "start": "tsc && node dist/index.js"
   },
   "dependencies": {
     "@atproto/pds": "^0.4.94",
@@ -15,5 +14,16 @@
   "devDependencies": {
     "@types/express": "^5.0.0",
     "typescript": "^5.7.2"
+  },
+  "pnpm": {
+    "installignoredBuiltDependencies": [
+      "better-sqlite3",
+      "cbor-extract",
+      "esbuild",
+      "sharp"
+    ],
+    "onlyBuiltDependencies": [
+        "better-sqlite3"
+    ]
   }
 }
